@@ -26,24 +26,27 @@ contract SVGPathDecoderA is IPathDecoder {
       ret := mload(0x40)
       let retMemory := add(ret, 0x20)
       let retLength := 0
+      let data
       for {let i := 0} lt(i, length){i := add(i,1)} {
-        let offset := mul(div(i, 2), 3)
+        if eq(mod(i,16),0) {
+          data := mload(bodyMemory)
+          bodyMemory := add(bodyMemory, 24)
+        }
         let low
         let high
-        switch eq(mod(i,2), 0)
-        case 1{
-          low := mload(add(bodyMemory, offset))
-          high := and(shr(240, low),0x0f)
-          low := shr(248, low)
+        switch mod(i,2)
+        case 0{
+          low := and(shr(248, data), 0xff)
+          high := and(shr(240, data), 0x0f)
         }
         default{
-          high := mload(add(bodyMemory, add(offset, 1)))
-          low := and(shr(240, high),0xff)
-          high := shr(252,high)
+          low := and(shr(232, data), 0xff)
+          high := and(shr(244, data), 0x0f)
+          data := shl(24, data)
         }
         
-        switch eq(high, 0)
-        case 1{
+        switch high
+        case 0{
           if and( gt(low, 64), lt(low, 91)){
             mstore(add(retMemory,retLength), shl(248,low))
             retLength := add(retLength, 1)
@@ -77,8 +80,7 @@ contract SVGPathDecoderA is IPathDecoder {
             lenCmd := add(1, lenCmd)
           }
           if gt(value,9){
-            value := mod(mod(value,1000), 100)
-            cmd := or(shl(8,cmd), add(48, div(value, 10)))
+            cmd := or(shl(8,cmd), add(48, div(mod(value,100), 10)))
             lenCmd := add(1, lenCmd)
             value := mod(value,10)
           }
